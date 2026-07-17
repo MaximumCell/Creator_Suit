@@ -8,6 +8,18 @@ export interface AttendanceActionState {
   ok?: boolean;
 }
 
+/** Postgres unique-violation SQLSTATE. */
+const PG_UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolationOn(
+  error: { code?: string; message?: string } | null,
+  constraint: string,
+): boolean {
+  if (!error) return false;
+  if (error.code !== PG_UNIQUE_VIOLATION) return false;
+  return (error.message ?? '').toLowerCase().includes(constraint);
+}
+
 export async function clockIn(): Promise<AttendanceActionState> {
   const supabase = await createClient();
   const {
@@ -16,8 +28,9 @@ export async function clockIn(): Promise<AttendanceActionState> {
 
   if (!user) return { error: 'Not signed in.' };
 
-  // Guard: an open row already exists. The unique partial index will also
-  // catch this server-side, but checking first gives a friendlier error.
+  // Friendly pre-check: an open row already exists. The partial unique index
+  // on (user_id) where clock_out is null also catches this server-side, but
+  // checking first gives a clearer message.
   const { data: open } = await supabase
     .from('attendance_logs')
     .select('id')
@@ -37,6 +50,12 @@ export async function clockIn(): Promise<AttendanceActionState> {
   });
 
   if (error) {
+    // (user_id, date) unique — already clocked in earlier today.
+    if (isUniqueViolationOn(error, 'attendance_logs_user_date_unique')) {
+      return {
+        error: "You've already clocked in today. You can only clock in once per day.",
+      };
+    }
     return { error: error.message };
   }
 

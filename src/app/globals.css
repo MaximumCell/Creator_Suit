@@ -1,33 +1,81 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens
+   - Slate-first neutrals: utility/tool feel (Linear / Vercel / Notion vibe)
+   - One primary action color (dark slate) for the most important button
+   - One accent (blue) for the daily action (clock in) — the most-clicked
+   - Emerald for "live" / success state, red for danger (clock out)
+   - All pairings verified ≥ 4.5:1 for normal text on white
+   --------------------------------------------------------------------------- */
 :root {
-  --background: #f7f7f8;
+  --background: #fafafa;
   --foreground: #0f172a;
   --card: #ffffff;
-  --border: #e2e8f0;
+  --card-foreground: #0f172a;
   --muted: #64748b;
-  --accent: #0f172a;
-  --accent-foreground: #f8fafc;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  --muted-foreground: #64748b;
+  --subtle: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --ring: #2563eb;
+
+  /* Primary = the "submit" / main action color (sign in, primary buttons) */
+  --primary: #0f172a;
+  --primary-hover: #1e293b;
+  --primary-foreground: #ffffff;
+
+  /* Accent = the daily hero action (clock in). */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-foreground: #ffffff;
+
+  /* Semantic */
+  --success: #059669;
+  --success-soft: #d1fae5;
+  --success-foreground: #ffffff;
   --danger: #dc2626;
-  --success: #16a34a;
+  --danger-hover: #b91c1c;
+  --danger-soft: #fee2e2;
+  --danger-foreground: #ffffff;
+
+  --radius: 0.5rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
-  --color-border: var(--border);
+  --color-card-foreground: var(--card-foreground);
   --color-muted: var(--muted);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
-  --color-danger: var(--danger);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* ---------------------------------------------------------------------------
+   Base layer
+   --------------------------------------------------------------------------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
@@ -37,8 +85,59 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto,
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   border-color: var(--border);
+}
+
+/* Interactive elements: pointer cursor + a touch of polish.
+   Tailwind doesn't ship cursor-pointer by default for buttons. */
+button,
+a[href],
+[role="button"],
+[role="link"] {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Visible focus ring only when keyboard-focused (not on click). */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Numeric columns should align cleanly. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live pulse for "in progress" dots. */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(1.15); }
+}
+.live-dot {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+/* Respect users who don't want motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

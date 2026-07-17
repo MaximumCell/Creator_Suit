@@ -23,19 +23,18 @@ export default async function DashboardLayout({
     .eq('id', authUser.id)
     .single<User>();
 
+  const user =
+    profile ?? {
+      id: authUser.id,
+      full_name: authUser.email ?? 'Unknown',
+      role: 'member',
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+    };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      <Sidebar
-        user={
-          profile ?? {
-            id: authUser.id,
-            full_name: authUser.email ?? 'Unknown',
-            role: 'member',
-            avatar_url: null,
-            created_at: new Date().toISOString(),
-          }
-        }
-      />
+      <Sidebar user={user} email={authUser.email} />
       <main className="flex-1 min-w-0 p-4 md:p-8">{children}</main>
     </div>
   );

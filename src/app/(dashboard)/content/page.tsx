@@ -1,19 +1,27 @@
+import { EmptyState } from '@/components/empty-state';
+import { HourglassIcon, KanbanIcon } from '@/components/icons';
+
 export default function ContentPage() {
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-2xl font-semibold tracking-tight">Content Pipeline</h1>
-      <p className="text-sm text-muted mt-1">
-        Kanban board for ideas → final → shooting → posted.
-      </p>
+      <header className="flex items-center gap-3 mb-1">
+        <div className="w-9 h-9 rounded-lg bg-subtle flex items-center justify-center text-foreground">
+          <KanbanIcon className="w-5 h-5" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Content Pipeline</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Kanban board: idea → final → shooting → posted.
+          </p>
+        </div>
+      </header>
 
-      <div className="mt-8 bg-card border rounded-xl p-8 text-center">
-        <div className="text-3xl mb-3">🚧</div>
-        <h2 className="text-lg font-medium">Coming soon</h2>
-        <p className="text-sm text-muted mt-1 max-w-md mx-auto">
-          This tab is part of the next build. The content_ideas table is
-          already in place — we&apos;ll add the board, card creation, and
-          drag-and-drop in the next pass.
-        </p>
+      <div className="mt-8 bg-card border rounded-xl shadow-sm">
+        <EmptyState
+          icon={<HourglassIcon className="w-6 h-6" />}
+          title="Coming in Step 3"
+          description="The content_ideas table is already in place. The kanban board, card creation, and drag-and-drop will land in the next build."
+        />
       </div>
     </div>
   );

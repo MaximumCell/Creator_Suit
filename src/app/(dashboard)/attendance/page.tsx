@@ -4,6 +4,7 @@ import { AdminTeamView } from './admin-team-view';
 import { PersonalLog } from './personal-log';
 import type { AttendanceLog, User } from '@/types/database';
 import { toDateInputValue } from '@/lib/time';
+import { ClockIcon } from '@/components/icons';
 
 interface SearchParams {
   from?: string;
@@ -42,13 +43,21 @@ export default async function AttendancePage({
   const isAdmin = profile?.role === 'admin';
   const displayName = profile?.full_name || authUser.email || 'You';
 
-  // --- Open clock-in for the current user --------------------------------
-  const { data: openLog } = await supabase
+  // --- Today's log (open OR already-closed) for the current user -------
+  // The DB trigger stamps date from (clock_in at time zone 'UTC')::date, so
+  // we filter on the same UTC date here.
+  const todayUtc = toDateInputValue(new Date());
+  const { data: todayLog } = await supabase
     .from('attendance_logs')
-    .select('id, clock_in')
+    .select('id, clock_in, clock_out, duration_minutes')
     .eq('user_id', authUser.id)
-    .is('clock_out', null)
-    .maybeSingle<{ id: string; clock_in: string }>();
+    .eq('date', todayUtc)
+    .maybeSingle<{
+      id: string;
+      clock_in: string;
+      clock_out: string | null;
+      duration_minutes: number | null;
+    }>();
 
   // --- Personal log: last RECENT_LOG_DAYS days ---------------------------
   const since = new Date();
@@ -118,16 +127,11 @@ export default async function AttendancePage({
 
     return (
       <div className="max-w-6xl mx-auto space-y-6">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight">Attendance</h1>
-          <p className="text-sm text-muted mt-1">
-            Hi {displayName} — clock in and out, and review team hours.
-          </p>
-        </header>
+        <PageHeader displayName={displayName} isAdmin />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <ClockWidget isAdmin={isAdmin} openLog={openLog} />
+            <ClockWidget isAdmin={isAdmin} todayLog={todayLog} />
           </div>
           <div className="lg:col-span-2">
             <PersonalLog logs={personalLogs ?? []} />
@@ -148,15 +152,35 @@ export default async function AttendancePage({
   // --- Member view -------------------------------------------------------
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Attendance</h1>
-        <p className="text-sm text-muted mt-1">
-          Hi {displayName} — clock in and out, and view your hours.
-        </p>
-      </header>
+      <PageHeader displayName={displayName} isAdmin={false} />
 
-      <ClockWidget isAdmin={isAdmin} openLog={openLog} />
+      <ClockWidget isAdmin={isAdmin} todayLog={todayLog} />
       <PersonalLog logs={personalLogs ?? []} />
     </div>
+  );
+}
+
+function PageHeader({
+  displayName,
+  isAdmin,
+}: {
+  displayName: string;
+  isAdmin: boolean;
+}) {
+  return (
+    <header className="flex items-center gap-3">
+      <div className="w-9 h-9 rounded-lg bg-subtle flex items-center justify-center text-foreground">
+        <ClockIcon className="w-5 h-5" />
+      </div>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Attendance</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Hi {displayName} —{' '}
+          {isAdmin
+            ? 'clock in and out, and review team hours.'
+            : 'clock in and out, and view your hours.'}
+        </p>
+      </div>
+    </header>
   );
 }
