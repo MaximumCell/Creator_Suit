@@ -151,7 +151,7 @@ async function main() {
       .from('youtube_channels')
       .select('id')
       .eq('channel_id', info.channelId)
-      .maybeSingle<{ id: string }>();
+      .maybeSingle();
     if (existing) {
       console.log(`  ↳ already tracked, skipping`);
       skipped += 1;
@@ -169,7 +169,7 @@ async function main() {
         added_by: admin.id,
       })
       .select('id')
-      .single<{ id: string }>();
+      .single();
     if (insertErr || !channel) {
       console.log(`  ↳ insert failed: ${insertErr?.message ?? 'unknown'}`);
       continue;

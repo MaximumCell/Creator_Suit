@@ -144,6 +144,7 @@ export default async function AttendancePage({
               isAdmin={isAdmin}
               todayLog={todayLog}
               autoClosed={autoClosed}
+              serverNow={Date.now()}
             />
           </div>
           <div className="lg:col-span-2">
@@ -171,6 +172,7 @@ export default async function AttendancePage({
         isAdmin={isAdmin}
         todayLog={todayLog}
         autoClosed={autoClosed}
+        serverNow={Date.now()}
       />
       <PersonalLog logs={personalLogs ?? []} />
     </div>

@@ -37,6 +37,7 @@ export interface YoutubeChannelRow {
   channel_url: string;
   added_by: string;
   thumbnail_url: string | null;
+  uploads_playlist_id: string | null;
   created_at: string;
 }
 
@@ -47,6 +48,34 @@ export interface YoutubeStatsSnapshotRow {
   view_count: number;
   video_count: number;
   fetched_at: string;
+}
+
+export interface YoutubeVideoRow {
+  id: string;
+  channel_id: string;
+  video_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  published_at: string;
+  duration: string | null;
+  view_count: number;
+  like_count: number | null;
+  comment_count: number | null;
+  fetched_at: string;
+}
+
+export interface YoutubeOauthTokenRow {
+  id: string;
+  user_id: string;
+  channel_id: string;
+  channel_title: string | null;
+  access_token: string;
+  refresh_token: string;
+  /** Unix ms */
+  expires_at: number;
+  scope: string | null;
+  connected_at: string;
+  updated_at: string;
 }
 
 export interface ContentIdeaRow {
@@ -69,6 +98,8 @@ export type AttendanceLogInsert = Partial<AttendanceLogRow> & {
 };
 export type YoutubeChannelInsert = Omit<YoutubeChannelRow, 'id' | 'created_at'>;
 export type YoutubeStatsSnapshotInsert = Omit<YoutubeStatsSnapshotRow, 'id' | 'fetched_at'>;
+export type YoutubeVideoInsert = Omit<YoutubeVideoRow, 'id' | 'fetched_at'>;
+export type YoutubeOauthTokenInsert = Omit<YoutubeOauthTokenRow, 'id' | 'connected_at' | 'updated_at'>;
 export type ContentIdeaInsert = Omit<ContentIdeaRow, 'id' | 'created_at' | 'updated_at'> & {
   created_by: string;
   title: string;
@@ -103,6 +134,18 @@ export type Database = {
         Update: Record<string, unknown> & Partial<YoutubeStatsSnapshotRow>;
         Relationships: never[];
       };
+      youtube_videos: {
+        Row: Record<string, unknown> & YoutubeVideoRow;
+        Insert: Record<string, unknown> & YoutubeVideoInsert;
+        Update: Record<string, unknown> & Partial<YoutubeVideoRow>;
+        Relationships: never[];
+      };
+      youtube_oauth_tokens: {
+        Row: Record<string, unknown> & YoutubeOauthTokenRow;
+        Insert: Record<string, unknown> & YoutubeOauthTokenInsert;
+        Update: Record<string, unknown> & Partial<YoutubeOauthTokenRow>;
+        Relationships: never[];
+      };
       content_ideas: {
         Row: Record<string, unknown> & ContentIdeaRow;
         Insert: Record<string, unknown> & ContentIdeaInsert;
@@ -122,6 +165,8 @@ export type User = UserRow;
 export type AttendanceLog = AttendanceLogRow;
 export type YoutubeChannel = YoutubeChannelRow;
 export type YoutubeStatsSnapshot = YoutubeStatsSnapshotRow;
+export type YoutubeVideo = YoutubeVideoRow;
+export type YoutubeOauthToken = YoutubeOauthTokenRow;
 export type ContentIdea = ContentIdeaRow;
 export interface AttendanceLogWithUser extends AttendanceLogRow {
   user: Pick<UserRow, 'id' | 'full_name'> | null;

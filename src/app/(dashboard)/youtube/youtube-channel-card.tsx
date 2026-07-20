@@ -1,9 +1,10 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { removeChannel, type YouTubeActionState } from './actions';
 import { Avatar } from '@/components/avatar';
+import { Sparkline } from '@/components/sparkline';
 import {
   ExternalIcon,
   TrashIcon,
@@ -31,6 +32,20 @@ export interface ChannelView {
     viewCount: number;
     fetchedAt: string;
   } | null;
+  /** Subscriber counts in chronological order (oldest → newest).
+   *  Used for the sparkline trend. */
+  history: number[];
+  /** Top videos by view count (already pre-sorted, max 5). */
+  topVideos: Array<{
+    videoId: string;
+    title: string;
+    thumbnailUrl: string | null;
+    publishedAt: string;
+    viewCount: number;
+    likeCount: number | null;
+    commentCount: number | null;
+    url: string;
+  }>;
 }
 
 function formatBig(n: number): string {
@@ -133,6 +148,26 @@ export function YouTubeChannelCard({
         </div>
       </div>
 
+      {channel.history.length >= 2 ? (
+        <div className="px-5 pb-4 -mt-1">
+          <div className="flex items-end justify-between gap-3">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              7-day trend
+            </span>
+            <Sparkline
+              data={channel.history}
+              width={140}
+              height={32}
+              className={`shrink-0 ${
+                subsDelta != null && subsDelta >= 0
+                  ? 'text-success'
+                  : 'text-danger'
+              }`}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {channel.latest ? (
         <div className="grid grid-cols-3 border-t divide-x">
           <StatCell
@@ -157,7 +192,118 @@ export function YouTubeChannelCard({
           Stats will appear after the first refresh.
         </div>
       )}
+
+      {channel.topVideos.length > 0 ? <TopVideosList videos={channel.topVideos} /> : null}
     </article>
+  );
+}
+
+function formatPublishedAgo(iso: string, now = Date.now()): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const diffMs = Math.max(0, now - t);
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days < 1) return 'today';
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+function TopVideosList({
+  videos,
+}: {
+  videos: ChannelView['topVideos'];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium hover:bg-subtle/50 transition-colors"
+        aria-expanded={open}
+      >
+        <span>
+          Top videos{' '}
+          <span className="text-muted-foreground font-normal">
+            · {videos.length} by views
+          </span>
+        </span>
+        <span
+          className={`text-muted-foreground transition-transform ${
+            open ? 'rotate-180' : ''
+          }`}
+          aria-hidden
+        >
+          <svg
+            className="w-4 h-4"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </button>
+      {open ? (
+        <ul className="divide-y border-t">
+          {videos.map((v, i) => (
+            <li key={v.videoId}>
+              <a
+                href={v.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-3 p-3 hover:bg-subtle/50 transition-colors"
+              >
+                <span className="text-xs font-mono text-muted-foreground tabular w-5 text-right shrink-0 pt-1">
+                  {i + 1}
+                </span>
+                {v.thumbnailUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={v.thumbnailUrl}
+                    alt=""
+                    className="w-24 h-14 object-cover rounded border bg-subtle shrink-0"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-24 h-14 rounded border bg-subtle shrink-0" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-snug line-clamp-2">
+                    {v.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground tabular mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-foreground/90">
+                      {formatBig(v.viewCount)} views
+                    </span>
+                    {v.likeCount != null ? (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span>{formatBig(v.likeCount)} likes</span>
+                      </>
+                    ) : null}
+                    {v.commentCount != null ? (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span>{formatBig(v.commentCount)} comments</span>
+                      </>
+                    ) : null}
+                    <span aria-hidden>·</span>
+                    <span>{formatPublishedAgo(v.publishedAt)}</span>
+                  </p>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

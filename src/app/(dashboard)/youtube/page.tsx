@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { AddChannelForm } from './add-channel-form';
+import { ConnectButton } from './connect-button';
 import {
   YouTubeChannelCard,
   type ChannelView,
@@ -7,11 +8,20 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { FilmIcon } from '@/components/icons';
 import { RefreshButton } from './refresh-button';
-import type { YoutubeChannel, YoutubeStatsSnapshot } from '@/types/database';
+import type {
+  YoutubeChannel,
+  YoutubeOauthToken,
+  YoutubeStatsSnapshot,
+  YoutubeVideo,
+} from '@/types/database';
 
 export const metadata = { title: 'YouTube Stats · CreatorSuit' };
 
-export default async function YoutubePage() {
+export default async function YoutubePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ yt_oauth?: string; reason?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -28,20 +38,39 @@ export default async function YoutubePage() {
     .single<{ role: 'admin' | 'member' }>();
   const isAdmin = profile?.role === 'admin';
 
-  // Fetch all channels + every snapshot (we'll compute "latest" and "previous"
-  // client-side below — small dataset for an internal tool).
-  const [{ data: channels }, { data: snapshots }] = await Promise.all([
-    supabase
-      .from('youtube_channels')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .returns<YoutubeChannel[]>(),
-    supabase
-      .from('youtube_stats_snapshots')
-      .select('*')
-      .order('fetched_at', { ascending: false })
-      .returns<YoutubeStatsSnapshot[]>(),
-  ]);
+  // OAuth connection state (per current user).
+  const { data: oauthToken } = await supabase
+    .from('youtube_oauth_tokens')
+    .select('*')
+    .eq('user_id', authUser.id)
+    .maybeSingle<YoutubeOauthToken>();
+  const isConnected = !!oauthToken;
+
+  // OAuth callback result — show a banner on success/error.
+  const sp = await searchParams;
+  const oauthResult = sp.yt_oauth;
+  const oauthReason = sp.reason;
+
+  // Fetch all channels + every snapshot + every video row.
+  // Small dataset for an internal tool — we sort/aggregate in memory.
+  const [{ data: channels }, { data: snapshots }, { data: videos }] =
+    await Promise.all([
+      supabase
+        .from('youtube_channels')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .returns<YoutubeChannel[]>(),
+      supabase
+        .from('youtube_stats_snapshots')
+        .select('*')
+        .order('fetched_at', { ascending: false })
+        .returns<YoutubeStatsSnapshot[]>(),
+      supabase
+        .from('youtube_videos')
+        .select('*')
+        .order('view_count', { ascending: false })
+        .returns<YoutubeVideo[]>(),
+    ]);
 
   // Group snapshots by channel, then pick latest + previous.
   const byChannel = new Map<string, YoutubeStatsSnapshot[]>();
@@ -51,10 +80,26 @@ export default async function YoutubePage() {
     byChannel.set(s.channel_id, list);
   }
 
+  // Group videos by channel.
+  const videosByChannel = new Map<string, YoutubeVideo[]>();
+  for (const v of videos ?? []) {
+    const list = videosByChannel.get(v.channel_id) ?? [];
+    list.push(v);
+    videosByChannel.set(v.channel_id, list);
+  }
+
   const channelViews: ChannelView[] = (channels ?? []).map((c) => {
     const list = byChannel.get(c.id) ?? [];
     const latest = list[0] ?? null;
     const previous = list[1] ?? null;
+    // History: subscriber counts in chronological order (oldest → newest),
+    // capped to the last 14 points so the sparkline stays compact.
+    const history = [...list]
+      .slice(-14)
+      .reverse()
+      .map((s) => s.subscriber_count);
+    // Top videos by view count — already sorted desc from the query.
+    const topVideos = (videosByChannel.get(c.id) ?? []).slice(0, 5);
     return {
       id: c.id,
       channelId: c.channel_id,
@@ -76,6 +121,17 @@ export default async function YoutubePage() {
             fetchedAt: previous.fetched_at,
           }
         : null,
+      history,
+      topVideos: topVideos.map((v) => ({
+        videoId: v.video_id,
+        title: v.title,
+        thumbnailUrl: v.thumbnail_url,
+        publishedAt: v.published_at,
+        viewCount: v.view_count,
+        likeCount: v.like_count,
+        commentCount: v.comment_count,
+        url: `https://www.youtube.com/watch?v=${v.video_id}`,
+      })),
     };
   });
 
@@ -117,6 +173,35 @@ export default async function YoutubePage() {
         </div>
       ) : null}
 
+      {/* OAuth callback result banner */}
+      {oauthResult === 'connected' ? (
+        <div className="bg-success-soft border border-success/30 rounded-xl p-4 text-sm flex items-start gap-3">
+          <span className="w-2 h-2 rounded-full bg-success mt-1.5 shrink-0" aria-hidden />
+          <div>
+            <p className="font-medium text-foreground">
+              YouTube connected{oauthToken?.channel_title ? ` to ${oauthToken.channel_title}` : ''}.
+            </p>
+            <p className="text-muted-foreground mt-0.5">
+              Click <span className="font-medium">Open dashboard</span> below to see the Studio-style analytics.
+            </p>
+          </div>
+        </div>
+      ) : oauthResult === 'denied' ? (
+        <div className="bg-danger-soft border border-danger/30 rounded-xl p-4 text-sm">
+          <p className="font-medium text-danger">You denied the YouTube permission request.</p>
+          <p className="text-muted-foreground mt-0.5">
+            Click Connect YouTube again and choose <span className="font-medium">Allow</span> on the consent screen.
+          </p>
+        </div>
+      ) : oauthResult === 'error' ? (
+        <div className="bg-danger-soft border border-danger/30 rounded-xl p-4 text-sm">
+          <p className="font-medium text-danger">YouTube connection failed.</p>
+          <p className="text-muted-foreground mt-0.5 break-words">
+            {oauthReason ?? 'Unknown error.'}
+          </p>
+        </div>
+      ) : null}
+
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-3">
         <SummaryStat
@@ -144,6 +229,32 @@ export default async function YoutubePage() {
           ) : null}
         </div>
       ) : null}
+
+      {/* OAuth + analytics dashboard CTA */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between bg-card border rounded-xl p-4">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">Channel Analytics</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {isConnected
+              ? 'YouTube is connected. Open the Studio-style dashboard for views, watch time, subscribers, and revenue.'
+              : 'Connect your YouTube account to see daily views, watch time, subscriber growth, and revenue in a Studio-style dashboard.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <ConnectButton
+            connected={isConnected}
+            channelTitle={oauthToken?.channel_title ?? null}
+          />
+          {isConnected ? (
+            <a
+              href="/youtube/analytics"
+              className="inline-flex items-center h-9 px-3 rounded-md border bg-card text-sm font-medium hover:bg-subtle transition-colors"
+            >
+              Open dashboard
+            </a>
+          ) : null}
+        </div>
+      </div>
 
       {/* Channels grid */}
       {channelViews.length === 0 ? (

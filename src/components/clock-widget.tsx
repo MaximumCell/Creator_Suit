@@ -23,20 +23,26 @@ export function ClockWidget({
   isAdmin,
   todayLog,
   autoClosed,
+  serverNow,
 }: {
   isAdmin: boolean;
   todayLog: TodayLog;
   autoClosed: AutoClosed;
+  /** Unix ms at SSR time. Used so the very first client render matches
+   *  the server HTML and avoids a hydration mismatch on the ticking clock. */
+  serverNow: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<AutoClosed>(autoClosed);
-  // Initialise lazily so the first paint already shows a real timestamp.
-  const [now, setNow] = useState<number>(() => Date.now());
+  // Seed from the server timestamp so SSR and the first client render agree.
+  // The effect below immediately overwrites this with the client's clock.
+  const [now, setNow] = useState<number>(serverNow);
 
   // Tick once per second on the client so the running duration stays current.
   useEffect(() => {
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);

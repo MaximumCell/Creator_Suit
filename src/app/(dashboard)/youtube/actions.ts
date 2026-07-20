@@ -5,8 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchChannel,
+  fetchChannelDetails,
+  fetchChannelVideos,
   YouTubeError,
   type YouTubeChannelInfo,
+  type YouTubeVideoInfo,
 } from '@/lib/youtube';
 
 export interface YouTubeActionState {
@@ -70,9 +73,11 @@ export async function addChannel(
   const input = String(formData.get('channel') ?? '').trim();
   if (!input) return { error: 'Paste a YouTube channel URL or ID.' };
 
-  let info: YouTubeChannelInfo;
+  // Use fetchChannelDetails so we also get the uploads playlist id for
+  // listing the channel's videos.
+  let info: YouTubeChannelInfo & { uploadsPlaylistId: string };
   try {
-    info = await fetchChannel(input);
+    info = await fetchChannelDetails(input);
   } catch (err) {
     return { error: friendlyError(err) };
   }
@@ -86,7 +91,7 @@ export async function addChannel(
     .from('youtube_channels')
     .select('id')
     .eq('channel_id', info.channelId)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle();
 
   if (existing) {
     return { error: `"${info.title}" is already in your list.` };
@@ -100,9 +105,10 @@ export async function addChannel(
       channel_url: info.url,
       added_by: guard.userId,
       thumbnail_url: info.thumbnailUrl || null,
+      uploads_playlist_id: info.uploadsPlaylistId,
     })
     .select('id')
-    .single<{ id: string }>();
+    .single();
 
   if (insertErr || !channel) {
     return { error: insertErr?.message ?? 'Failed to save channel.' };
@@ -120,6 +126,14 @@ export async function addChannel(
     return { error: `Channel saved but first snapshot failed: ${snapErr.message}` };
   }
 
+  // Initial video list (best-effort — don't fail the whole add if this errors).
+  try {
+    const videos = await fetchChannelVideos(info.uploadsPlaylistId, 10);
+    await insertVideos(admin, channel.id, videos);
+  } catch (err) {
+    console.warn('Initial video fetch failed for', info.title, err);
+  }
+
   revalidatePath('/youtube');
   return { ok: true, addedChannelId: channel.id };
 }
@@ -135,8 +149,8 @@ export async function removeChannel(
   if (!channelId) return { error: 'Missing channel id.' };
 
   const admin = createAdminClient();
-  // FK on youtube_stats_snapshots.channel_id has on delete cascade, so the
-  // snapshots go with the channel. (See 0001_init.sql.)
+  // FK on youtube_stats_snapshots.channel_id and youtube_videos.channel_id
+  // both have on delete cascade, so the children go with the channel.
   const { error } = await admin
     .from('youtube_channels')
     .delete()
@@ -148,9 +162,36 @@ export async function removeChannel(
   return { ok: true };
 }
 
+/** Upsert a batch of videos for a channel. */
+async function insertVideos(
+  admin: ReturnType<typeof createAdminClient>,
+  channelId: string,
+  videos: YouTubeVideoInfo[],
+): Promise<void> {
+  if (videos.length === 0) return;
+  const rows = videos.map((v) => ({
+    channel_id: channelId,
+    video_id: v.videoId,
+    title: v.title,
+    thumbnail_url: v.thumbnailUrl || null,
+    published_at: v.publishedAt,
+    duration: v.duration,
+    view_count: v.viewCount,
+    like_count: v.likeCount,
+    comment_count: v.commentCount,
+  }));
+  const { error } = await admin
+    .from('youtube_videos')
+    .upsert(rows, { onConflict: 'channel_id,video_id' });
+  if (error) {
+    console.error('insertVideos failed:', error.message);
+  }
+}
+
 /**
- * Refreshes the latest stats for every tracked channel. Appends a new
- * snapshot row per channel. Returns a count of how many were refreshed.
+ * Refreshes the latest stats for every tracked channel + its recent videos.
+ * Appends a new snapshot row per channel and upserts the most recent videos.
+ * Returns a count of how many were refreshed.
  */
 export async function refreshAllChannels(): Promise<
   YouTubeActionState & { refreshed?: number; failed?: number }
@@ -161,8 +202,8 @@ export async function refreshAllChannels(): Promise<
   const admin = createAdminClient();
   const { data: channels, error } = await admin
     .from('youtube_channels')
-    .select('id, channel_id')
-    .returns<{ id: string; channel_id: string }[]>();
+    .select('id, channel_id, uploads_playlist_id')
+    .returns<{ id: string; channel_id: string; uploads_playlist_id: string | null }[]>();
 
   if (error) return { error: error.message };
   if (!channels || channels.length === 0) {
@@ -183,9 +224,33 @@ export async function refreshAllChannels(): Promise<
       });
       if (snapErr) {
         failed += 1;
-      } else {
-        refreshed += 1;
+        continue;
       }
+      // Also refresh the video list (best-effort).
+      let playlistId = ch.uploads_playlist_id;
+      if (!playlistId) {
+        // Backfill: older channels may not have this set. Fetch the channel
+        // details once to recover it.
+        try {
+          const details = await fetchChannelDetails({ kind: 'id', id: ch.channel_id });
+          playlistId = details.uploadsPlaylistId;
+          await admin
+            .from('youtube_channels')
+            .update({ uploads_playlist_id: playlistId })
+            .eq('id', ch.id);
+        } catch {
+          playlistId = null;
+        }
+      }
+      if (playlistId) {
+        try {
+          const videos = await fetchChannelVideos(playlistId, 10);
+          await insertVideos(admin, ch.id, videos);
+        } catch (err) {
+          console.warn('video refresh failed for', ch.channel_id, err);
+        }
+      }
+      refreshed += 1;
     } catch {
       failed += 1;
     }

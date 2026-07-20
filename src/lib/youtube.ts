@@ -6,7 +6,9 @@
  * Quota:   1 unit per channels.list call. Free tier: 10,000 units/day.
  */
 
-const API_BASE = 'https://www.googleapis.com/youtube/v3/channels';
+const CHANNELS_API = 'https://www.googleapis.com/youtube/v3/channels';
+const PLAYLIST_ITEMS_API = 'https://www.googleapis.com/youtube/v3/playlistItems';
+const VIDEOS_API = 'https://www.googleapis.com/youtube/v3/videos';
 
 export interface YouTubeChannelInfo {
   /** YouTube's stable channel ID, e.g. UC_x5XG1OV2P6uZZ5FSM9Ttw (always starts with UC) */
@@ -163,7 +165,7 @@ export async function fetchChannel(
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}?${params.toString()}`, { cache: 'no-store' });
+    res = await fetch(`${CHANNELS_API}?${params.toString()}`, { cache: 'no-store' });
   } catch (err) {
     throw new YouTubeError(
       `Couldn't reach YouTube: ${(err as Error).message}`,
@@ -213,4 +215,274 @@ export async function fetchChannel(
       ? `https://www.youtube.com/${item.snippet.customUrl}`
       : `https://www.youtube.com/channel/${item.id}`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Channel details + per-video stats
+// ---------------------------------------------------------------------------
+
+export interface YouTubeChannelDetails extends YouTubeChannelInfo {
+  /** ID of the channel's "uploads" playlist — used to list its videos cheaply
+   *  (1 quota unit vs 100 for search.list). */
+  uploadsPlaylistId: string;
+}
+
+/**
+ * Same as fetchChannel but also returns the channel's uploads playlist id,
+ * which is what we need to enumerate its videos without paying the
+ * search.list quota cost.
+ */
+export async function fetchChannelDetails(
+  raw: string | { kind: 'id'; id: string } | { kind: 'handle'; forHandle: string } | { kind: 'username'; forUsername: string },
+  apiKey = process.env.YOUTUBE_API_KEY,
+): Promise<YouTubeChannelDetails> {
+  if (!apiKey) {
+    throw new YouTubeError(
+      'YOUTUBE_API_KEY is not set. Add it to .env.local — see the README.',
+      'missing_api_key',
+    );
+  }
+
+  const parsed = typeof raw === 'string' ? parseChannelInput(raw) : raw;
+  const params = new URLSearchParams({
+    // +contentDetails so we get contentDetails.relatedPlaylists.uploads
+    part: 'snippet,statistics,contentDetails',
+    key: apiKey,
+  });
+  if (parsed.kind === 'id') params.set('id', parsed.id);
+  else if (parsed.kind === 'handle') params.set('forHandle', parsed.forHandle);
+  else params.set('forUsername', parsed.forUsername);
+  params.set('maxResults', '1');
+
+  let res: Response;
+  try {
+    res = await fetch(`${CHANNELS_API}?${params.toString()}`, { cache: 'no-store' });
+  } catch (err) {
+    throw new YouTubeError(
+      `Couldn't reach YouTube: ${(err as Error).message}`,
+      'network',
+    );
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    if (res.status === 403 && /quota/i.test(body)) {
+      throw new YouTubeError(
+        'YouTube API quota exceeded for today. Try again tomorrow or raise the quota in Google Cloud Console.',
+        'quota_exceeded',
+      );
+    }
+    if (res.status === 404 || res.status === 400) {
+      throw new YouTubeError(
+        'YouTube rejected the request. Check that the API is enabled and the key is valid.',
+        'api_error',
+      );
+    }
+    throw new YouTubeError(
+      `YouTube API error (${res.status}): ${body.slice(0, 200)}`,
+      'api_error',
+    );
+  }
+
+  const data = (await res.json()) as ChannelsListResponse & {
+    items?: Array<{
+      contentDetails?: {
+        relatedPlaylists?: { uploads?: string };
+      };
+    }>;
+  };
+  const item = data.items?.[0];
+  if (!item) {
+    throw new YouTubeError(
+      "No channel found for that URL/ID. Double-check it — channel handles and usernames are case-sensitive.",
+      'not_found',
+    );
+  }
+
+  const uploadsPlaylistId = item.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploadsPlaylistId) {
+    throw new YouTubeError(
+      "YouTube didn't return an uploads playlist for this channel. The channel may be too new or restricted.",
+      'api_error',
+    );
+  }
+
+  return {
+    channelId: item.id,
+    title: item.snippet.title,
+    description: item.snippet.description,
+    thumbnailUrl: pickThumbnail(item.snippet.thumbnails),
+    subscriberCount: Number(item.statistics.subscriberCount ?? 0),
+    viewCount: Number(item.statistics.viewCount ?? 0),
+    videoCount: Number(item.statistics.videoCount ?? 0),
+    publishedAt: item.snippet.publishedAt,
+    url: item.snippet.customUrl
+      ? `https://www.youtube.com/${item.snippet.customUrl}`
+      : `https://www.youtube.com/channel/${item.id}`,
+    uploadsPlaylistId,
+  };
+}
+
+export interface YouTubeVideoInfo {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string;
+  publishedAt: string;
+  duration: string | null;
+  viewCount: number;
+  likeCount: number | null;
+  commentCount: number | null;
+  url: string;
+}
+
+interface PlaylistItemListResponse {
+  items?: Array<{
+    contentDetails: {
+      videoId: string;
+      videoPublishedAt?: string;
+    };
+    snippet: {
+      title: string;
+      thumbnails: {
+        default?: { url: string };
+        medium?: { url: string };
+        high?: { url: string };
+      };
+    };
+  }>;
+  nextPageToken?: string;
+}
+
+interface VideoListResponse {
+  items?: Array<{
+    id: string;
+    snippet: {
+      title: string;
+      publishedAt: string;
+      thumbnails: {
+        default?: { url: string };
+        medium?: { url: string };
+        high?: { url: string };
+        maxres?: { url: string };
+      };
+    };
+    contentDetails: { duration?: string };
+    statistics: {
+      viewCount?: string;
+      likeCount?: string;
+      commentCount?: string;
+    };
+  }>;
+}
+
+/**
+ * Fetches up to `maxResults` recent videos from a channel via its uploads
+ * playlist. Uses 2 quota units (playlistItems.list + videos.list) per call.
+ */
+export async function fetchChannelVideos(
+  uploadsPlaylistId: string,
+  maxResults = 10,
+  apiKey = process.env.YOUTUBE_API_KEY,
+): Promise<YouTubeVideoInfo[]> {
+  if (!apiKey) {
+    throw new YouTubeError(
+      'YOUTUBE_API_KEY is not set. Add it to .env.local — see the README.',
+      'missing_api_key',
+    );
+  }
+
+  // 1) Get the recent video IDs from the uploads playlist.
+  const listParams = new URLSearchParams({
+    part: 'contentDetails,snippet',
+    playlistId: uploadsPlaylistId,
+    maxResults: String(Math.min(maxResults, 50)),
+    key: apiKey,
+  });
+
+  let listRes: Response;
+  try {
+    listRes = await fetch(`${PLAYLIST_ITEMS_API}?${listParams.toString()}`, {
+      cache: 'no-store',
+    });
+  } catch (err) {
+    throw new YouTubeError(
+      `Couldn't reach YouTube: ${(err as Error).message}`,
+      'network',
+    );
+  }
+
+  if (!listRes.ok) {
+    const body = await listRes.text().catch(() => '');
+    if (listRes.status === 403 && /quota/i.test(body)) {
+      throw new YouTubeError(
+        'YouTube API quota exceeded for today.',
+        'quota_exceeded',
+      );
+    }
+    throw new YouTubeError(
+      `YouTube API error (${listRes.status}): ${body.slice(0, 200)}`,
+      'api_error',
+    );
+  }
+
+  const listData = (await listRes.json()) as PlaylistItemListResponse;
+  const items = listData.items ?? [];
+  if (items.length === 0) return [];
+
+  const videoIds = items.map((i) => i.contentDetails.videoId);
+  const titleById = new Map(
+    items.map((i) => [i.contentDetails.videoId, i.snippet.title] as const),
+  );
+
+  // 2) Batch-fetch the per-video stats.
+  const statsParams = new URLSearchParams({
+    part: 'snippet,contentDetails,statistics',
+    id: videoIds.join(','),
+    key: apiKey,
+  });
+
+  let statsRes: Response;
+  try {
+    statsRes = await fetch(`${VIDEOS_API}?${statsParams.toString()}`, {
+      cache: 'no-store',
+    });
+  } catch (err) {
+    throw new YouTubeError(
+      `Couldn't reach YouTube: ${(err as Error).message}`,
+      'network',
+    );
+  }
+
+  if (!statsRes.ok) {
+    const body = await statsRes.text().catch(() => '');
+    if (statsRes.status === 403 && /quota/i.test(body)) {
+      throw new YouTubeError(
+        'YouTube API quota exceeded for today.',
+        'quota_exceeded',
+      );
+    }
+    throw new YouTubeError(
+      `YouTube API error (${statsRes.status}): ${body.slice(0, 200)}`,
+      'api_error',
+    );
+  }
+
+  const statsData = (await statsRes.json()) as VideoListResponse;
+
+  return (statsData.items ?? []).map((v) => ({
+    videoId: v.id,
+    title: titleById.get(v.id) ?? v.snippet.title,
+    thumbnailUrl:
+      v.snippet.thumbnails.medium?.url ??
+      v.snippet.thumbnails.high?.url ??
+      v.snippet.thumbnails.default?.url ??
+      '',
+    publishedAt: v.snippet.publishedAt,
+    duration: v.contentDetails.duration ?? null,
+    viewCount: Number(v.statistics.viewCount ?? 0),
+    likeCount: v.statistics.likeCount != null ? Number(v.statistics.likeCount) : null,
+    commentCount:
+      v.statistics.commentCount != null ? Number(v.statistics.commentCount) : null,
+    url: `https://www.youtube.com/watch?v=${v.id}`,
+  }));
 }

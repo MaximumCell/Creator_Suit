@@ -65,6 +65,14 @@ Open http://localhost:3000 — you'll be redirected to `/login`.
 
 Add `YOUTUBE_API_KEY` to `.env.local` (free key from Google Cloud Console, enable "YouTube Data API v3").
 
+**Populate the page** with a few real channels to see the stats + sparkline trend:
+
+```bash
+npm run seed:youtube
+```
+
+This adds MKBHD, MrBeast, Veritasium, and Kurzgesagt (idempotent — skips any already tracked) and inserts 8 historical snapshots per channel so the 7-day trend sparkline has something to draw.
+
 For **daily auto-refresh** of channel stats, point any cron service at:
 
 ```
@@ -79,7 +87,7 @@ Authorization: Bearer <CRON_SECRET>
 }
 ```
 
-Set `CRON_SECRET` in Vercel env vars and configure the cron to send the same value as a Bearer token.
+Set `CRON_SECRET` in Vercel env vars and configure the cron to send the same value as a Bearer token. In production, the route refuses calls without a matching `CRON_SECRET`; in dev it's allowed through so you can test with `curl http://localhost:3000/api/youtube/refresh`.
 
 ### 7. Create the first user and promote to admin
 
@@ -154,6 +162,7 @@ npm run lint             # ESLint
 npm run seed             # seed demo users + attendance data
 npm run seed:content     # seed demo content ideas for the kanban
 npm run seed:close-stale # one-off: close any forgotten open sessions
+npm run seed:youtube     # seed a few popular YouTube channels
 ```
 
 ## Demo data (optional)
