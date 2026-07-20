@@ -88,12 +88,12 @@ export function ClockWidget({
   return (
     <section
       aria-labelledby="clock-heading"
-      className="bg-card border rounded-xl p-5 sm:p-6 shadow-sm"
+      className="rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-6"
     >
       <div className="flex items-center justify-between gap-2">
         <h2
           id="clock-heading"
-          className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+          className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
         >
           Today
         </h2>
@@ -109,7 +109,10 @@ export function ClockWidget({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3 flex-wrap">
-        <span className="text-4xl sm:text-5xl font-semibold tabular tracking-tight">
+        <span
+          className="text-4xl font-semibold tabular tracking-tight sm:text-5xl"
+          style={{ fontFamily: 'var(--font-varela-round)' }}
+        >
           {isOpen || isDone ? displayTime : 'Off the clock'}
         </span>
       </div>
@@ -142,12 +145,12 @@ export function ClockWidget({
       <button
         onClick={handleClick}
         disabled={pending || isDone}
-        className={`mt-5 w-full sm:w-auto sm:min-w-48 inline-flex items-center justify-center gap-2 h-10 px-5 rounded-md text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+        className={`mt-5 inline-flex w-full sm:w-auto sm:min-w-48 items-center justify-center gap-2 h-11 px-5 rounded-xl text-sm font-semibold transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 ${
           isOpen
-            ? 'bg-danger text-danger-foreground hover:bg-danger-hover'
+            ? 'bg-danger text-danger-foreground shadow-md hover:bg-danger-hover'
             : isDone
             ? 'bg-success-soft text-success'
-            : 'bg-accent text-accent-foreground hover:bg-accent-hover'
+            : 'bg-primary text-primary-foreground shadow-blue hover:bg-primary-hover'
         }`}
       >
         {pending ? (
@@ -180,7 +183,7 @@ export function ClockWidget({
       {banner ? (
         <div
           role="status"
-          className="mt-4 flex items-start gap-2.5 text-xs text-muted-foreground bg-subtle border rounded-md px-3 py-2"
+          className="mt-4 flex items-start gap-2.5 text-xs text-muted-foreground rounded-xl border border-border bg-surface-2 px-3 py-2.5"
         >
           <ClockIcon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <p>
@@ -200,7 +203,7 @@ export function ClockWidget({
       {error ? (
         <p
           role="alert"
-          className="mt-3 text-sm text-danger bg-danger-soft border border-danger/30 rounded-md px-3 py-2"
+          className="mt-3 text-sm text-danger bg-danger-soft border border-danger/30 rounded-xl px-3 py-2"
         >
           {error}
         </p>

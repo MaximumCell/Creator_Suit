@@ -6,6 +6,8 @@ import { KanbanIcon } from '@/components/icons';
 import type { ContentIdea, User } from '@/types/database';
 import { Suspense } from 'react';
 import { NewIdeaButton } from './new-idea-button';
+import { ContentPageHeader } from './page-header';
+import { ContentStats } from './content-stats';
 
 export const metadata = { title: 'Content Pipeline · CreatorSuit' };
 
@@ -56,23 +58,24 @@ export default async function ContentPage({
     ? allIdeas.filter((i) => i.assigned_to === sp.member)
     : allIdeas;
 
+  // Compute overdue count for the page subtitle.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const overdueCount = allIdeas.filter((i) => {
+    if (!i.due_date || i.stage === 'posted') return false;
+    return new Date(i.due_date) < today;
+  }).length;
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-subtle flex items-center justify-center text-foreground">
-            <KanbanIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Content Pipeline
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Drag ideas between stages, or click one to edit.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <ContentPageHeader
+          displayName={profile.full_name ?? 'there'}
+          members={members}
+          overdueCount={overdueCount}
+          totalCount={allIdeas.length}
+        />
+        <div className="flex flex-wrap items-center gap-2">
           <Suspense fallback={null}>
             <MemberFilter members={members} />
           </Suspense>
@@ -82,10 +85,12 @@ export default async function ContentPage({
             isAdmin={isAdmin}
           />
         </div>
-      </header>
+      </div>
+
+      {allIdeas.length > 0 ? <ContentStats ideas={allIdeas} /> : null}
 
       {filteredIdeas.length === 0 && allIdeas.length === 0 ? (
-        <div className="bg-card border rounded-xl shadow-sm">
+        <div className="rounded-2xl border border-border bg-surface shadow-sm">
           <EmptyState
             icon={<KanbanIcon className="w-6 h-6" />}
             title="No ideas yet"
@@ -114,7 +119,7 @@ export default async function ContentPage({
           No ideas match this filter.{' '}
           <a
             href="/content"
-            className="text-accent hover:underline font-medium"
+            className="font-medium text-primary hover:underline"
           >
             Clear filter
           </a>

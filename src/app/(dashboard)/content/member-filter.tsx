@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 import type { User } from '@/types/database';
+import { FilterIcon } from '@/components/icons';
 
 /**
  * Filter dropdown that pushes ?member=<id|all> into the URL.
@@ -25,19 +26,17 @@ export function MemberFilter({ members }: { members: User[] }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <label
-        htmlFor="member-filter"
-        className="text-xs text-muted-foreground whitespace-nowrap"
-      >
-        Filter by:
+    <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-2.5 py-1 shadow-sm">
+      <FilterIcon className="h-3.5 w-3.5 text-muted-foreground" />
+      <label htmlFor="member-filter" className="sr-only">
+        Filter by member
       </label>
       <select
         id="member-filter"
         value={current}
         onChange={(e) => onChange(e.target.value)}
         disabled={pending}
-        className="h-9 rounded-md border bg-background px-3 text-sm outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+        className="h-8 border-0 bg-transparent pr-7 text-sm font-medium text-foreground outline-none transition-opacity disabled:opacity-50 [background-image:none] focus:ring-0"
       >
         <option value="all">All members</option>
         {members.map((m) => (

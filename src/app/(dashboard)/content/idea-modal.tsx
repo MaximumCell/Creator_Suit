@@ -79,7 +79,7 @@ export function IdeaModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-foreground/40 backdrop-blur-sm"
+      className="modal-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -89,7 +89,7 @@ export function IdeaModal({
     >
       <div
         ref={panelRef}
-        className="bg-card border rounded-xl shadow-xl w-full max-w-lg overflow-hidden"
+        className="modal-panel w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <form action={saveAction} className="flex flex-col">

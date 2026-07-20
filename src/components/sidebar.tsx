@@ -5,26 +5,50 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { logout } from '@/app/login/actions';
 import {
+  ChartIcon,
   ClockIcon,
   CloseIcon,
   FilmIcon,
   KanbanIcon,
   LogoutIcon,
   MenuIcon,
+  SparkleIcon,
 } from './icons';
 import { Avatar } from './avatar';
+import { Logo } from '@/components/landing/Logo';
 import type { User } from '@/types/database';
 
 interface NavItem {
   href: string;
   label: string;
   icon: (props: { className?: string }) => React.ReactElement;
+  /** Color tint used for the active state. */
+  tint: string;
+  tintSoft: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/attendance', label: 'Attendance', icon: ClockIcon },
-  { href: '/youtube', label: 'YouTube Stats', icon: FilmIcon },
-  { href: '/content', label: 'Content Pipeline', icon: KanbanIcon },
+  {
+    href: '/attendance',
+    label: 'Attendance',
+    icon: ClockIcon,
+    tint: 'text-primary',
+    tintSoft: 'bg-primary-soft',
+  },
+  {
+    href: '/youtube',
+    label: 'YouTube',
+    icon: FilmIcon,
+    tint: 'text-accent',
+    tintSoft: 'bg-accent-soft',
+  },
+  {
+    href: '/content',
+    label: 'Content pipeline',
+    icon: KanbanIcon,
+    tint: 'text-secondary',
+    tintSoft: 'bg-secondary-soft',
+  },
 ];
 
 export function Sidebar({
@@ -59,13 +83,13 @@ export function Sidebar({
   return (
     <>
       {/* Mobile top bar */}
-      <header className="md:hidden flex items-center justify-between bg-card border-b px-4 h-14 sticky top-0 z-30">
+      <header className="md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface/90 px-4 backdrop-blur-md">
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 -ml-2 px-2 py-1.5 rounded-md hover:bg-subtle transition-colors"
+          className="-ml-2 flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-2"
           aria-label="Open menu"
         >
-          <MenuIcon className="w-5 h-5" />
+          <MenuIcon className="h-5 w-5" />
           <span className="text-sm font-semibold">CreatorSuit</span>
         </button>
         <Avatar
@@ -81,42 +105,40 @@ export function Sidebar({
       {/* Backdrop */}
       <div
         onClick={() => setOpen(false)}
-        className={`md:hidden fixed inset-0 bg-foreground/30 z-40 transition-opacity ${
-          open ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`fixed inset-0 z-40 bg-foreground/30 transition-opacity md:hidden ${
+          open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         aria-hidden="true"
       />
 
       <aside
         aria-label="Primary navigation"
-        className={`fixed md:sticky md:top-0 md:self-start inset-y-0 left-0 z-50 w-60 h-screen md:h-screen bg-card md:border-r flex flex-col transform transition-transform duration-200 ease-out md:transform-none ${
-          open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-surface transition-transform duration-200 ease-out md:sticky md:top-0 md:self-start md:h-screen md:translate-x-0 ${
+          open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand + mobile close */}
-        <div className="h-14 px-5 flex items-center justify-between border-b">
+        <div className="flex h-16 items-center justify-between px-5">
           <Link
             href="/attendance"
-            className="flex items-center gap-2"
+            className="flex items-center"
             onClick={() => setOpen(false)}
           >
-            <div className="w-7 h-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold tracking-tight">
-              CS
-            </div>
-            <span className="text-sm font-semibold tracking-tight">
-              CreatorSuit
-            </span>
+            <Logo size={32} />
           </Link>
           <button
             onClick={() => setOpen(false)}
-            className="md:hidden -mr-2 p-2 rounded-md hover:bg-subtle text-muted-foreground"
+            className="-mr-2 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 md:hidden"
             aria-label="Close menu"
           >
-            <CloseIcon className="w-5 h-5" />
+            <CloseIcon className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav className="flex-1 space-y-1 px-3 py-2">
+          <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Workspace
+          </div>
           {NAV_ITEMS.map((item) => {
             const active =
               pathname === item.href ||
@@ -128,31 +150,22 @@ export function Sidebar({
                 href={item.href}
                 onClick={() => setOpen(false)}
                 aria-current={active ? 'page' : undefined}
-                className={`group flex items-center gap-3 h-10 px-3 rounded-md text-sm font-medium transition-colors ${
+                className={`flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${
                   active
-                    ? 'bg-subtle text-foreground'
-                    : 'text-muted-foreground hover:bg-subtle hover:text-foreground'
+                    ? `${item.tintSoft} ${item.tint}`
+                    : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
                 }`}
               >
-                <Icon
-                  className={`w-[18px] h-[18px] transition-colors ${
-                    active
-                      ? 'text-foreground'
-                      : 'text-muted-foreground group-hover:text-foreground'
-                  }`}
-                />
+                <Icon className="h-[18px] w-[18px]" />
                 <span>{item.label}</span>
-                {active ? (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
-                ) : null}
               </Link>
             );
           })}
         </nav>
 
-        {/* User profile + sign-out, pinned to the bottom of the sidebar */}
-        <div className="p-3 border-t bg-card">
-          <div className="flex items-center gap-3 px-2 py-2">
+        {/* User profile + sign-out, pinned to the bottom */}
+        <div className="border-t border-border p-3">
+          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
             <Avatar
               fullName={user.full_name}
               email={email}
@@ -161,10 +174,10 @@ export function Sidebar({
               size={36}
             />
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium truncate">
+              <div className="truncate text-sm font-medium">
                 {user.full_name || '—'}
               </div>
-              <div className="text-xs text-muted-foreground capitalize">
+              <div className="text-xs capitalize text-muted-foreground">
                 {user.role}
               </div>
             </div>
@@ -172,9 +185,9 @@ export function Sidebar({
           <form action={logout}>
             <button
               type="submit"
-              className="w-full flex items-center gap-3 px-3 h-9 rounded-md text-sm text-muted-foreground hover:bg-subtle hover:text-foreground transition-colors"
+              className="mt-1 flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
             >
-              <LogoutIcon className="w-[18px] h-[18px]" />
+              <LogoutIcon className="h-[18px] w-[18px]" />
               <span>Sign out</span>
             </button>
           </form>

@@ -26,13 +26,13 @@ export function NewIdeaButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        className={
-          primary
-            ? 'inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors'
-            : 'inline-flex items-center gap-2 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors'
-        }
+        className={`group inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-blue transition-all hover:-translate-y-0.5 hover:bg-primary-hover ${
+          primary ? 'h-11' : 'h-10'
+        }`}
       >
-        <PlusIcon className="w-4 h-4" />
+        <span className="grid h-5 w-5 place-items-center rounded-md bg-white/20 transition-transform group-hover:rotate-90">
+          <PlusIcon className="h-3.5 w-3.5" />
+        </span>
         <span>New idea</span>
       </button>
 

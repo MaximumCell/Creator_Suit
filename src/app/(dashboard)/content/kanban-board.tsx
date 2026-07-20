@@ -17,13 +17,11 @@ import {
 import { Avatar } from '@/components/avatar';
 import { PencilIcon, PlusIcon } from '@/components/icons';
 import { changeStage, type IdeaActionState } from './actions';
-import { STAGES, STAGE_LABELS } from './stages';
+import { STAGES, STAGE_LABELS, STAGE_COLORS } from './stages';
 import { IdeaModal } from './idea-modal';
 import type { ContentIdea, ContentStage, User } from '@/types/database';
 
 export type IdeaView = ContentIdea;
-
-
 
 export function KanbanBoard({
   ideas,
@@ -115,8 +113,8 @@ export function KanbanBoard({
         onDragEnd={onDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {STAGES.map((stage) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {STAGES.map((stage, idx) => (
             <Column
               key={stage}
               stage={stage}
@@ -124,13 +122,14 @@ export function KanbanBoard({
               onAdd={() => setEditing({ mode: 'create', stage })}
               onEdit={(idea) => setEditing({ mode: 'edit', idea })}
               members={members}
+              index={idx}
             />
           ))}
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeIdea ? (
-            <div className="rotate-1 opacity-90 shadow-xl">
+            <div className="rotate-2 scale-105 cursor-grabbing shadow-2xl">
               <KanbanCard idea={activeIdea} members={members} dragging />
             </div>
           ) : null}
@@ -158,34 +157,64 @@ function Column({
   onAdd,
   onEdit,
   members,
+  index,
 }: {
   stage: ContentStage;
   ideas: IdeaView[];
   onAdd: () => void;
   onEdit: (idea: IdeaView) => void;
   members: User[];
+  index: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
+  const color = STAGE_COLORS[stage];
 
   return (
     <div
       ref={setNodeRef}
-      className={`bg-subtle/50 rounded-xl p-3 min-h-[400px] flex flex-col transition-colors ${
-        isOver ? 'bg-accent/10 ring-2 ring-accent/30' : ''
+      className={`fade-up relative flex min-h-[420px] flex-col rounded-2xl border bg-surface-2/50 p-3 transition-all ${
+        isOver
+          ? 'scale-[1.01] border-dashed bg-surface ring-2'
+          : 'border-border'
       }`}
+      style={{
+        animationDelay: `${index * 60}ms`,
+        // Drop zone accent when an item is hovering
+        ...(isOver
+          ? { boxShadow: `0 0 0 2px ${color.hex}33`, borderColor: color.hex }
+          : {}),
+      }}
     >
-      <div className="flex items-center justify-between px-1 pb-3">
+      {/* Top color bar — gradient, brand color of the stage */}
+      <div
+        aria-hidden
+        className="absolute inset-x-3 top-0 h-1 rounded-b-full"
+        style={{ background: color.hex }}
+      />
+
+      <div className="flex items-center justify-between px-1 pb-3 pt-2">
         <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="h-2 w-2 rounded-full"
+            style={{ background: color.hex }}
+          />
           <h3 className="text-sm font-semibold tracking-tight">
             {STAGE_LABELS[stage]}
           </h3>
-          <span className="text-xs text-muted-foreground tabular bg-card px-1.5 py-0.5 rounded">
+          <span
+            className="rounded-md px-1.5 py-0.5 text-xs tabular"
+            style={{
+              background: color.soft,
+              color: color.hex,
+            }}
+          >
             {ideas.length}
           </span>
         </div>
         <button
           onClick={onAdd}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-card transition-colors"
+          className="p-1 text-muted-foreground rounded-md transition-colors hover:bg-surface hover:text-foreground"
           title={`Add idea to ${STAGE_LABELS[stage]}`}
         >
           <PlusIcon className="w-4 h-4" />
@@ -193,18 +222,19 @@ function Column({
       </div>
 
       <div className="flex-1 space-y-2 min-h-[60px]">
-        {ideas.map((idea) => (
+        {ideas.map((idea, i) => (
           <DraggableCard
             key={idea.id}
             idea={idea}
             onEdit={() => onEdit(idea)}
             members={members}
+            index={i}
           />
         ))}
         {ideas.length === 0 ? (
           <button
             onClick={onAdd}
-            className="w-full text-xs text-muted-foreground hover:text-foreground border border-dashed rounded-lg py-6 hover:bg-card transition-colors"
+            className="w-full rounded-xl border border-dashed py-6 text-xs text-muted-foreground transition-colors hover:border-primary hover:bg-surface hover:text-foreground"
           >
             + Add an idea
           </button>
@@ -218,10 +248,12 @@ function DraggableCard({
   idea,
   onEdit,
   members,
+  index,
 }: {
   idea: IdeaView;
   onEdit: () => void;
   members: User[];
+  index: number;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: idea.id,
@@ -230,7 +262,7 @@ function DraggableCard({
   return (
     <div
       ref={setNodeRef}
-      style={{ opacity: isDragging ? 0.3 : 1 }}
+      style={{ opacity: isDragging ? 0 : 1 }}
       {...attributes}
       {...listeners}
     >
@@ -238,6 +270,7 @@ function DraggableCard({
         idea={idea}
         members={members}
         onClick={onEdit}
+        index={index}
       />
     </div>
   );
@@ -248,11 +281,13 @@ function KanbanCard({
   members,
   onClick,
   dragging = false,
+  index = 0,
 }: {
   idea: IdeaView;
   members: User[];
   onClick?: () => void;
   dragging?: boolean;
+  index?: number;
 }) {
   const assignee = idea.assigned_to
     ? members.find((m) => m.id === idea.assigned_to)
@@ -274,12 +309,15 @@ function KanbanCard({
       })
     : null;
 
+  const color = STAGE_COLORS[idea.stage];
+
   return (
     <div
       onClick={onClick}
-      className={`relative bg-card border rounded-lg p-3 group cursor-pointer hover:border-accent/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 transition-all ${
+      className={`fade-up group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface p-3 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
         dragging ? 'shadow-xl cursor-grabbing' : ''
       }`}
+      style={{ animationDelay: `${index * 40}ms` }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -290,8 +328,15 @@ function KanbanCard({
       }}
       aria-label={`Edit idea: ${idea.title}`}
     >
-      <div className="flex items-start gap-2">
-        <h4 className="text-sm font-medium leading-snug flex-1 min-w-0">
+      {/* Left stage accent bar */}
+      <span
+        aria-hidden
+        className="absolute left-0 top-0 h-full w-1 transition-all duration-300"
+        style={{ background: color.hex }}
+      />
+
+      <div className="flex items-start gap-2 pl-1.5">
+        <h4 className="min-w-0 flex-1 text-sm font-medium leading-snug">
           {idea.title}
         </h4>
         {assignee ? (
@@ -306,23 +351,31 @@ function KanbanCard({
       </div>
 
       {idea.description ? (
-        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
+        <p className="mt-1.5 line-clamp-2 pl-1.5 text-xs text-muted-foreground">
           {idea.description}
         </p>
       ) : null}
 
-      <div className="flex items-center justify-between mt-2.5 gap-2">
+      <div className="mt-2.5 flex items-center justify-between gap-2 pl-1.5">
         {dueLabel ? (
           <span
-            className={`text-xs font-medium tabular inline-flex items-center gap-1 ${
+            className={`inline-flex items-center gap-1 text-xs font-medium tabular ${
               isOverdue
                 ? 'text-danger'
                 : isDueSoon
-                ? 'text-amber-600'
-                : 'text-muted-foreground'
+                  ? 'text-amber-600'
+                  : 'text-muted-foreground'
             }`}
           >
-            {isOverdue ? '⚠ ' : ''}
+            {isOverdue ? (
+              <span
+                aria-hidden
+                className="relative inline-flex h-1.5 w-1.5"
+              >
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-danger" />
+              </span>
+            ) : null}
             {dueLabel}
           </span>
         ) : (
@@ -331,7 +384,7 @@ function KanbanCard({
         {/* Always-visible edit affordance — works on touch (no :hover) too. */}
         <span
           aria-hidden
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 group-hover:text-foreground/80 transition-colors"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 transition-colors group-hover:text-foreground/80"
         >
           <PencilIcon className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Edit</span>

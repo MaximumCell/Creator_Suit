@@ -1,34 +1,58 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Design tokens
-   - Slate-first neutrals: utility/tool feel (Linear / Vercel / Notion vibe)
-   - One primary action color (dark slate) for the most important button
-   - One accent (blue) for the daily action (clock in) — the most-clicked
-   - Emerald for "live" / success state, red for danger (clock out)
-   - All pairings verified ≥ 4.5:1 for normal text on white
+   Design tokens — "Soft UI Evolution" (CreatorSuit)
+   - Brand blue + creator purple primary
+   - Light, friendly, rounded — friendly SaaS / course-platform vibe
+   - 4.5:1+ contrast on every pairing below
+   - All radii are large (1rem–2.5rem) for the soft, rounded look
    --------------------------------------------------------------------------- */
 :root {
-  --background: #fafafa;
-  --foreground: #0f172a;
-  --card: #ffffff;
+  /* Surfaces */
+  --background: #f1f5fd;        /* page background — soft blue-grey */
+  --foreground: #0f172a;        /* default text */
+  --surface:    #ffffff;        /* card / panel */
+  --surface-2:  #f7f9fe;        /* sidebar / nested surface */
+  --surface-3:  #eef2fb;        /* hovered nav row / subtle block */
+
+  --card:        #ffffff;
   --card-foreground: #0f172a;
-  --muted: #64748b;
-  --muted-foreground: #64748b;
-  --subtle: #f1f5f9;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --ring: #2563eb;
+  --popover:     #ffffff;
+  --popover-foreground: #0f172a;
 
-  /* Primary = the "submit" / main action color (sign in, primary buttons) */
-  --primary: #0f172a;
-  --primary-hover: #1e293b;
+  /* Text */
+  --muted: #5b6478;
+  --muted-foreground: #5b6478;
+  --subtle: #eef2fb;
+
+  /* Brand */
+  --primary: #2563eb;           /* brand blue */
+  --primary-hover: #1d4ed8;
   --primary-foreground: #ffffff;
+  --primary-soft: #dbe7ff;      /* soft blue tint for hovers/badges */
 
-  /* Accent = the daily hero action (clock in). */
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  /* Accent (creator pink) — for highlight CTAs and "fun" surfaces */
+  --accent: #ec4899;
+  --accent-hover: #db2777;
   --accent-foreground: #ffffff;
+  --accent-soft: #fce7f3;
+
+  /* Secondary (creator purple) — for secondary CTAs and feature variety */
+  --secondary: #7c3aed;
+  --secondary-foreground: #ffffff;
+  --secondary-soft: #ede9fe;
+
+  /* Category accents (mirroring the dashboard card colors) */
+  --cat-blue:   #3b82f6;
+  --cat-pink:   #ec4899;
+  --cat-yellow: #f59e0b;
+  --cat-red:    #ef4444;
+  --cat-green:  #10b981;
+
+  /* Borders + rings */
+  --border: #e4ecfc;
+  --border-strong: #c7d6f3;
+  --ring:  #2563eb;
 
   /* Semantic */
   --success: #059669;
@@ -38,15 +62,38 @@
   --danger-hover: #b91c1c;
   --danger-soft: #fee2e2;
   --danger-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-soft: #fef3c7;
 
-  --radius: 0.5rem;
+  /* Radii — larger than typical to match the friendly aesthetic */
+  --radius-sm: 0.5rem;
+  --radius:    0.875rem;        /* 14px — default for buttons/inputs */
+  --radius-md: 1rem;            /* 16px — small cards */
+  --radius-lg: 1.25rem;         /* 20px — cards */
+  --radius-xl: 1.75rem;         /* 28px — large cards / panels */
+  --radius-2xl: 2.25rem;        /* 36px — hero panels */
+  --radius-3xl: 3rem;           /* 48px — landing hero card */
+
+  /* Shadows — soft, never harsh */
+  --shadow-sm:  0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow:     0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:  0 10px 30px -8px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg:  0 20px 40px -10px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.04);
+  --shadow-xl:  0 30px 60px -15px rgba(15, 23, 42, 0.16), 0 8px 16px rgba(15, 23, 42, 0.04);
+  --shadow-blue: 0 10px 30px -8px rgba(37, 99, 235, 0.25);
+  --shadow-pink: 0 10px 30px -8px rgba(236, 72, 153, 0.30);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
+  --color-surface:    var(--surface);
+  --color-surface-2:  var(--surface-2);
+  --color-surface-3:  var(--surface-3);
+  --color-card:        var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover:     var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-subtle: var(--subtle);
@@ -56,9 +103,19 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-soft: var(--secondary-soft);
+  --color-cat-blue: var(--cat-blue);
+  --color-cat-pink: var(--cat-pink);
+  --color-cat-yellow: var(--cat-yellow);
+  --color-cat-red: var(--cat-red);
+  --color-cat-green: var(--cat-green);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-success-foreground: var(--success-foreground);
@@ -66,7 +123,10 @@
   --color-danger-hover: var(--danger-hover);
   --color-danger-soft: var(--danger-soft);
   --color-danger-foreground: var(--danger-foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --font-sans: var(--font-nunito-sans);
+  --font-display: var(--font-varela-round);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -86,14 +146,14 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
 }
 
 * {
   border-color: var(--border);
 }
 
-/* Interactive elements: pointer cursor + a touch of polish.
-   Tailwind doesn't ship cursor-pointer by default for buttons. */
+/* Interactive elements: pointer cursor + a touch of polish. */
 button,
 a[href],
 [role="button"],
@@ -128,6 +188,100 @@ button:disabled,
 }
 .live-dot {
   animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+/* Soft floating motion used on landing-page mockups. */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50%      { transform: translateY(-12px) translateX(6px); }
+}
+.float-slow {
+  animation: float-slow 10s ease-in-out infinite;
+}
+
+@keyframes float-medium {
+  0%, 100% { transform: translateY(0) translateX(0) rotate(0); }
+  50%      { transform: translateY(14px) translateX(-10px) rotate(3deg); }
+}
+.float-medium {
+  animation: float-medium 8s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.04); }
+}
+.pulse-glow {
+  animation: pulse-glow 5s ease-in-out infinite;
+}
+
+/* Soft fade-up reveal for landing sections (with stagger support). */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Marquee — horizontal infinite scroll for "logos" and testimonial strips. */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 36s linear infinite;
+}
+
+/* Slow conic spin (used for big ambient blobs). */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin-slow {
+  animation: spin-slow 60s linear infinite;
+}
+
+/* Animated gradient shift for the CTA panel. */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 10s ease infinite;
+}
+
+/* Soft grid pattern for the ambient background. */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Modal — backdrop fade-in + panel scale-up. */
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-backdrop {
+  animation: modal-backdrop-in 0.2s ease-out both;
+}
+.modal-panel {
+  animation: modal-panel-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Subtle gradient text for hero word. */
+.text-gradient-blue {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 60%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* Respect users who don't want motion. */
