@@ -7,8 +7,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database';
 
-let cached: ReturnType<typeof createClient> | null = null;
+let cached: ReturnType<typeof createClient<Database>> | null = null;
 
 export function createAdminClient() {
   if (cached) return cached;
@@ -23,7 +24,7 @@ export function createAdminClient() {
     );
   }
 
-  cached = createClient(url, serviceKey, {
+  cached = createClient<Database>(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   return cached;

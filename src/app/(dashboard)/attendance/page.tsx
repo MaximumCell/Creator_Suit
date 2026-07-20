@@ -4,6 +4,7 @@ import { AdminTeamView } from './admin-team-view';
 import { PersonalLog } from './personal-log';
 import type { AttendanceLog, User } from '@/types/database';
 import { toDateInputValue } from '@/lib/time';
+import { autoCloseStaleSession, getTodayUtc, type AutoCloseResult } from '@/lib/attendance';
 import { ClockIcon } from '@/components/icons';
 
 interface SearchParams {
@@ -43,10 +44,18 @@ export default async function AttendancePage({
   const isAdmin = profile?.role === 'admin';
   const displayName = profile?.full_name || authUser.email || 'You';
 
+  // --- Auto-close any stale open session from a previous day ------------
+  // The user forgot to clock out — close it at 23:59:59 of that day so
+  // they can start fresh today. Returns info for the widget banner.
+  const autoClosed: AutoCloseResult | null = await autoCloseStaleSession(
+    supabase,
+    authUser.id,
+  );
+
   // --- Today's log (open OR already-closed) for the current user -------
-  // The DB trigger stamps date from (clock_in at time zone 'UTC')::date, so
-  // we filter on the same UTC date here.
-  const todayUtc = toDateInputValue(new Date());
+  // The DB trigger stamps date from (clock_in at time zone 'UTC')::date,
+  // so we filter on the same UTC date here.
+  const todayUtc = getTodayUtc();
   const { data: todayLog } = await supabase
     .from('attendance_logs')
     .select('id, clock_in, clock_out, duration_minutes')
@@ -131,7 +140,11 @@ export default async function AttendancePage({
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <ClockWidget isAdmin={isAdmin} todayLog={todayLog} />
+            <ClockWidget
+              isAdmin={isAdmin}
+              todayLog={todayLog}
+              autoClosed={autoClosed}
+            />
           </div>
           <div className="lg:col-span-2">
             <PersonalLog logs={personalLogs ?? []} />
@@ -154,7 +167,11 @@ export default async function AttendancePage({
     <div className="max-w-3xl mx-auto space-y-6">
       <PageHeader displayName={displayName} isAdmin={false} />
 
-      <ClockWidget isAdmin={isAdmin} todayLog={todayLog} />
+      <ClockWidget
+        isAdmin={isAdmin}
+        todayLog={todayLog}
+        autoClosed={autoClosed}
+      />
       <PersonalLog logs={personalLogs ?? []} />
     </div>
   );

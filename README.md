@@ -61,6 +61,26 @@ npm run dev
 
 Open http://localhost:3000 — you'll be redirected to `/login`.
 
+### 7. (Optional) Set up YouTube auto-refresh
+
+Add `YOUTUBE_API_KEY` to `.env.local` (free key from Google Cloud Console, enable "YouTube Data API v3").
+
+For **daily auto-refresh** of channel stats, point any cron service at:
+
+```
+GET https://your-domain.com/api/youtube/refresh
+Authorization: Bearer <CRON_SECRET>
+```
+
+**Vercel Cron** example (`vercel.json`):
+```json
+{
+  "crons": [{ "path": "/api/youtube/refresh", "schedule": "0 6 * * *" }]
+}
+```
+
+Set `CRON_SECRET` in Vercel env vars and configure the cron to send the same value as a Bearer token.
+
 ### 7. Create the first user and promote to admin
 
 - Click the **Sign up** tab and create your account (full name, email, password)
@@ -127,22 +147,20 @@ conditions between two clock-in clicks can't create duplicates.
 ## Scripts
 
 ```bash
-npm run dev        # local dev server
-npm run build      # production build
-npm run start      # run the production build
-npm run lint       # ESLint
-npm run seed       # seed demo users + attendance data (see below)
+npm run dev              # local dev server
+npm run build            # production build
+npm run start            # run the production build
+npm run lint             # ESLint
+npm run seed             # seed demo users + attendance data
+npm run seed:content     # seed demo content ideas for the kanban
+npm run seed:close-stale # one-off: close any forgotten open sessions
 ```
 
 ## Demo data (optional)
 
-To populate the admin team view with sample employees:
+### Users + attendance (`npm run seed`)
 
-```bash
-npm run seed
-```
-
-This creates 5 demo users via the Supabase admin API and seeds 5 days of realistic attendance data (some users clocked in today, some already finished, some haven't started). The script is **idempotent** — safe to re-run. It clears previous demo logs and re-inserts them.
+Creates 5 demo users via the Supabase admin API and seeds 5 days of realistic attendance data (some users clocked in today, some already finished, some haven't started). The script is **idempotent** — safe to re-run. It clears previous demo logs and re-inserts them.
 
 **Demo accounts (password is `demo1234` for all):**
 
@@ -157,6 +175,38 @@ This creates 5 demo users via the Supabase admin API and seeds 5 days of realist
 Sign in as Ali to see the admin team view populated, or as any member to see their own attendance against a populated team.
 
 **To remove the demo data:** delete the users from the Supabase dashboard (Authentication → Users → ⋯ → Delete user). The `on delete cascade` on `public.users.id` will clean up the `attendance_logs` rows for them automatically.
+
+### Content pipeline ideas (`npm run seed:content`)
+
+```bash
+npm run seed:content
+```
+
+Populates the Content Pipeline kanban with 12 realistic content ideas distributed across all 5 stages:
+
+| Stage | Count |
+|---|---|
+| Idea | 3 |
+| Final Script | 3 |
+| Shoot & Edit | 2 |
+| Final | 2 |
+| Posted | 2 |
+
+- **Round-robin assignees** — ideas are spread across every user in the database, so the member filter shows realistic distribution.
+- **Varied due dates** — ~20% are overdue, ~15% are due today, ~50% are due in the next 1–21 days, ~15% have no due date.
+- **Idempotent** — safe to re-run. The script first clears all existing `content_ideas` rows, then inserts a fresh batch. Use this whenever the kanban is empty or feels stale.
+- **Requires** `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` (already needed for `npm run seed`).
+- **Requires** at least one user to exist in `auth.users`. If you haven't run `npm run seed` yet, the script will exit with a helpful error.
+
+### Forgot to clock out? (`npm run seed:close-stale`)
+
+If a user forgot to clock out at the end of the day, the open session will block them from clocking in fresh the next day (the DB enforces "one open session per user"). The Attendance page now auto-closes any session that's still open from a previous day at 23:59:59 of that day, but for sessions that pre-date the fix, run:
+
+```bash
+npm run seed:close-stale
+```
+
+Idempotent. Closes every `attendance_logs` row where `clock_out IS NULL` and the `date` is before today (UTC), setting `clock_out` to `23:59:59.999Z` of that day so the duration still looks reasonable.
 
 ## Roles
 

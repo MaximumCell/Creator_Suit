@@ -8,9 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "node --env-file=.env.local scripts/seed-demo-users.mjs",
-    "seed:reset": "node --env-file=.env.local scripts/seed-demo-users.mjs"
+    "seed:reset": "node --env-file=.env.local scripts/seed-demo-users.mjs",
+    "seed:content": "node --env-file=.env.local scripts/seed-demo-content.mjs",
+    "seed:close-stale": "node --env-file=.env.local scripts/close-stale-sessions.mjs",
+    "seed:youtube": "node --env-file=.env.local scripts/seed-youtube-channels.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "next": "16.2.10",

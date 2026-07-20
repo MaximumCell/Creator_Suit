@@ -16,12 +16,16 @@ export interface YouTubeActionState {
   addedChannelId?: string;
 }
 
-async function requireAdmin(): Promise<{ userId: string } | YouTubeActionState> {
+type AdminGuard =
+  | { ok: true; userId: string }
+  | { ok: false; error: string };
+
+async function requireAdmin(): Promise<AdminGuard> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not signed in.' };
+  if (!user) return { ok: false, error: 'Not signed in.' };
 
   const { data: profile } = await supabase
     .from('users')
@@ -30,9 +34,9 @@ async function requireAdmin(): Promise<{ userId: string } | YouTubeActionState> 
     .single<{ role: 'admin' | 'member' }>();
 
   if (!profile || profile.role !== 'admin') {
-    return { error: 'Only admins can manage YouTube channels.' };
+    return { ok: false, error: 'Only admins can manage YouTube channels.' };
   }
-  return { userId: user.id };
+  return { ok: true, userId: user.id };
 }
 
 function friendlyError(err: unknown): string {
@@ -61,7 +65,7 @@ export async function addChannel(
   formData: FormData,
 ): Promise<YouTubeActionState> {
   const guard = await requireAdmin();
-  if ('error' in guard) return guard;
+  if (!guard.ok) return { error: guard.error };
 
   const input = String(formData.get('channel') ?? '').trim();
   if (!input) return { error: 'Paste a YouTube channel URL or ID.' };
@@ -95,6 +99,7 @@ export async function addChannel(
       channel_name: info.title,
       channel_url: info.url,
       added_by: guard.userId,
+      thumbnail_url: info.thumbnailUrl || null,
     })
     .select('id')
     .single<{ id: string }>();
@@ -124,7 +129,7 @@ export async function removeChannel(
   formData: FormData,
 ): Promise<YouTubeActionState> {
   const guard = await requireAdmin();
-  if ('error' in guard) return guard;
+  if (!guard.ok) return { error: guard.error };
 
   const channelId = String(formData.get('channel_id') ?? '');
   if (!channelId) return { error: 'Missing channel id.' };
@@ -151,7 +156,7 @@ export async function refreshAllChannels(): Promise<
   YouTubeActionState & { refreshed?: number; failed?: number }
 > {
   const guard = await requireAdmin();
-  if ('error' in guard) return guard;
+  if (!guard.ok) return { error: guard.error };
 
   const admin = createAdminClient();
   const { data: channels, error } = await admin

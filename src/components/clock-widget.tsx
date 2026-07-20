@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { clockIn, clockOut } from '@/app/(dashboard)/attendance/actions';
-import { formatDuration, formatElapsed, formatTime } from '@/lib/time';
+import { formatDate, formatDuration, formatElapsed, formatTime } from '@/lib/time';
 import { CheckIcon, ClockIcon } from './icons';
 
 type TodayLog = {
@@ -13,16 +13,25 @@ type TodayLog = {
   duration_minutes: number | null;
 } | null;
 
+type AutoClosed = {
+  id: string;
+  date: string;
+  clock_out: string;
+} | null;
+
 export function ClockWidget({
   isAdmin,
   todayLog,
+  autoClosed,
 }: {
   isAdmin: boolean;
   todayLog: TodayLog;
+  autoClosed: AutoClosed;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<AutoClosed>(autoClosed);
   // Initialise lazily so the first paint already shows a real timestamp.
   const [now, setNow] = useState<number>(() => Date.now());
 
@@ -52,7 +61,10 @@ export function ClockWidget({
       startTransition(async () => {
         const result = await clockOut();
         if (result.error) setError(result.error);
-        else router.refresh();
+        else {
+          if (result.autoClosed) setBanner(result.autoClosed);
+          router.refresh();
+        }
       });
       return;
     }
@@ -60,7 +72,10 @@ export function ClockWidget({
     startTransition(async () => {
       const result = await clockIn();
       if (result.error) setError(result.error);
-      else router.refresh();
+      else {
+        if (result.autoClosed) setBanner(result.autoClosed);
+        router.refresh();
+      }
     });
   }
 
@@ -154,6 +169,26 @@ export function ClockWidget({
           )}{' '}
           so far
         </p>
+      ) : null}
+
+      {banner ? (
+        <div
+          role="status"
+          className="mt-4 flex items-start gap-2.5 text-xs text-muted-foreground bg-subtle border rounded-md px-3 py-2"
+        >
+          <ClockIcon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <p>
+            Forgot to clock out on{' '}
+            <span className="text-foreground font-medium">
+              {formatDate(banner.clock_out)}
+            </span>
+            ? Auto-closed that session at{' '}
+            <span className="text-foreground font-medium tabular">
+              {formatTime(banner.clock_out)}
+            </span>{' '}
+            so you could start fresh today.
+          </p>
+        </div>
       ) : null}
 
       {error ? (
